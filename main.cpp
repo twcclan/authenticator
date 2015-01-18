@@ -542,6 +542,7 @@ C_DLLEXPORT int QMM_vmMain(int cmd, int arg0, int arg1, int arg2, int arg3, int 
 	playerinfo_t* player;
 	const char* hash;
 	char userinfo[MAX_INFO_STRING];
+	int argc;
 	switch(cmd) {
 		case GAME_CLIENT_DISCONNECT:
 			//stop the transfer that might run for this player
@@ -584,7 +585,7 @@ C_DLLEXPORT int QMM_vmMain(int cmd, int arg0, int arg1, int arg2, int arg3, int 
 		case GAME_CLIENT_COMMAND: {
 			char tempbuf[128];
 			g_syscall(G_ARGV, 0, tempbuf, sizeof(tempbuf) - 1);
-			int argc = g_syscall(G_ARGC);
+			argc = g_syscall(G_ARGC);
 			int start;
 			
 			if(!strcasecmp(tempbuf, "auth_info")) {
@@ -635,7 +636,7 @@ C_DLLEXPORT int QMM_vmMain(int cmd, int arg0, int arg1, int arg2, int arg3, int 
 			char tempbuf[128];
 			g_syscall(G_ARGV, 0, tempbuf, sizeof(tempbuf));
 			
-			int argc = g_syscall(G_ARGC);
+			argc = g_syscall(G_ARGC);
 			
 			// TODO: rename to something more generic
 			if (!strcasecmp(tempbuf, "auth_error")) {
