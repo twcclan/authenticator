@@ -32,7 +32,6 @@ mod_vmMain_t g_vmMain = NULL;
 pluginfuncs_t* g_pluginfuncs = NULL;
 int g_vmbase = 0;
 int active_transfers = 0;
-int auth_user = -1;
 const char hashChars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 CURLM *curl_handle = NULL;
 http_t *game_http = NULL;
@@ -279,9 +278,7 @@ void authenticator_handle_player(CURLMsg* msg, playerinfo_t* player) {
 		} else {
 			g_syscall(G_PRINT, QMM_VARARGS("[AUTH] Failed to authenticate client %d\n", player->clientNum));
 		}
-		auth_user = player->clientNum;
 		authenticator_exec_body(player->request);
-		auth_user = -1;
 	} else {
 		g_syscall(G_PRINT, QMM_VARARGS("[AUTH] cURL error: %d\n", result));
 	}
@@ -610,23 +607,15 @@ C_DLLEXPORT int QMM_vmMain(int cmd, int arg0, int arg1, int arg2, int arg3, int 
 				
 				QMM_RET_SUPERCEDE(1);
 			}
-			/*
-			else if(!strncasecmp(tempbuf, "remote", 6)) {
-				authenticator_queue_command(arg0, tempbuf + 6);
-				QMM_RET_SUPERCEDE(1);
-			}
-			*/
-			// g_syscall(G_PRINT, QMM_VARARGS("[AUTH] Scanning for command, argc=%d\n", argc));
 			
 			// skip all leading arguments that start with "say"
 			for(start = 0; !strncasecmp(tempbuf, "say", 3) && start < argc; g_syscall(G_ARGV, ++start, tempbuf, sizeof(tempbuf))) {
+				// NOP
 				// g_syscall(G_PRINT, QMM_VARARGS("[AUTH] Skipping argument %d = \"%s\"\n", start, tempbuf));
 			}
 			
 			char *command = ConcatArgs(start);
 			command = skip_whitespace(command);
-			
-			// g_syscall(G_PRINT, QMM_VARARGS("[AUTH] Checking command: %s\n", command));
 			
 			if(*command == '!' && !g_playerinfo[arg0].authenticated) {
 				g_syscall(G_PRINT,
@@ -635,6 +624,7 @@ C_DLLEXPORT int QMM_vmMain(int cmd, int arg0, int arg1, int arg2, int arg3, int 
 				QMM_RET_SUPERCEDE(1);
 			}
 			
+			// block !about
 			if(!strncasecmp(command, "!ab", 3)) {
 				QMM_RET_SUPERCEDE(1);
 			}
@@ -644,11 +634,30 @@ C_DLLEXPORT int QMM_vmMain(int cmd, int arg0, int arg1, int arg2, int arg3, int 
 		case GAME_CONSOLE_COMMAND:
 			char tempbuf[128];
 			g_syscall(G_ARGV, 0, tempbuf, sizeof(tempbuf));
+			
+			int argc = g_syscall(G_ARGC);
+			
+			// TODO: rename to something more generic
 			if (!strcasecmp(tempbuf, "auth_error")) {
-				if(auth_user < 0)
-					QMM_RET_IGNORED(0);
+			
+				//we need at least 2 (additional) arguments
+				if(argc <  3) {
+					g_syscall(G_PRINT, "auth_error <slot> <message...>\n");
+					QMM_RET_SUPERCEDE(1);
+				}
+
+				//try to read the client slot number
+				g_syscall(G_ARGV, 1, tempbuf, sizeof(tempbuf));
 				
-				char* message = QMM_VARARGS("^1[AUTH] Error: %s\n", ConcatArgs(1));
+				int auth_user = atoi(tempbuf);
+				
+				// sanity check for the slot number
+				if(auth_user < 0 || auth_user > QMM_GETINTCVAR("sv_maxclients")) {
+					g_syscall(G_PRINT, QMM_VARARGS("Error: client number has to be between 0 and %i\n", QMM_GETINTCVAR("sv_maxclients")));
+					QMM_RET_SUPERCEDE(1);
+				}
+				
+				char* message = QMM_VARARGS("^1[AUTH] Error: %s\n", ConcatArgs(2));
 				cpm(auth_user, message);
 				QMM_RET_SUPERCEDE(1);
 			}
@@ -663,7 +672,7 @@ C_DLLEXPORT int QMM_vmMain(int cmd, int arg0, int arg1, int arg2, int arg3, int 
 				
 				if(cl < 0 || cl > QMM_GETINTCVAR("sv_maxclients"))
 				{
-					g_syscall(G_PRINT, QMM_VARARGS("Error: client number has to be between 0 and %i", QMM_GETINTCVAR("sv_maxclients")));
+					g_syscall(G_PRINT, QMM_VARARGS("Error: client number has to be between 0 and %i\n", QMM_GETINTCVAR("sv_maxclients")));
 				}
 				else
 				{				
